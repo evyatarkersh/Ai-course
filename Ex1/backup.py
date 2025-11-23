@@ -149,3 +149,73 @@ def h_astar_nextStep(self, node):
             return h_base 
 
         return h_base + min_dist_to_target
+
+def h_gbfs(self, node):
+        """ This is the heuristic. It gets a node (not a state)
+        and returns a goal distance estimate"""
+        """
+        This is the non-admissible heuristic for GBFS. It estimates the proximity 
+        to the goal by combining required actions (LOAD/POUR) with estimated 
+        transport cost (Manhattan Distance).
+        """
+        state = node.state
+        
+        # --- 1. Extract data components ---
+        # state = (GridSize, Walls, Taps, Plants, Robots)
+        
+        grid_size, walls, taps_data, plants_data, robots_data = state
+        taps_map = dict(taps_data)
+        robots_map = dict(robots_data) # {ID: (r, c, load, capacity)}
+        
+        # 2. Base Cost: Minimum LOAD/POUR actions
+        # total_wu_needed: The total water required across all plants
+        total_wu_needed = sum(wu for (coord, wu) in plants_data)
+        
+        if total_wu_needed == 0:
+            return 0
+        
+        # 3. Identify available resources/targets
+        available_taps = [coord for (coord, wu) in taps_data if wu > 0]
+        needed_plants = [coord for (coord, wu) in plants_data if wu > 0]
+        
+        # Fallback if resources/targets are missing (cannot calculate distance)
+        if not available_taps or not needed_plants:
+            return total_wu_needed * 2 
+            
+        # 4. Calculate Minimum Trip Cost (Robot -> Tap -> Plant)
+        # This finds the minimum cost for ANY robot to complete one full R->T->P cycle
+        min_total_path_cost = utils.infinity
+        
+        # Iterate over all robots
+        for robot_id, (r, c, load, capacity) in robots_map.items():
+            robot_coord = (r, c)
+            
+            # Calculate the minimum R -> T -> P path for THIS specific robot
+            min_R_T_P_for_this_robot = utils.infinity
+            
+            # Iterate over all available Taps
+            for tap_coord in available_taps:
+                
+                # a. Distance R to this T (LOAD cost)
+                # Manhattan Distance calculation
+                dist_R_to_T = abs(robot_coord[0] - tap_coord[0]) + abs(robot_coord[1] - tap_coord[1])
+                
+                # b. Min distance from this specific T to ANY plant P (POUR cost)
+                # Find the best plant target for THIS tap
+                min_dist_T_to_P = min(
+                    (abs(tap_coord[0] - plant_coord[0]) + abs(tap_coord[1] - plant_coord[1]))
+                    for plant_coord in needed_plants
+                )
+                
+                # c. Total path cost through this T (for THIS robot)
+                path_cost = dist_R_to_T + min_dist_T_to_P
+                
+                # Update the minimum path cost found for the CURRENT robot
+                min_R_T_P_for_this_robot = min(min_R_T_P_for_this_robot, path_cost)
+                
+            # Update the overall minimum trip cost across ALL robots
+            min_total_path_cost = min(min_total_path_cost, min_R_T_P_for_this_robot)
+
+        # 5. Final Aggressive Heuristic: 
+        # (Total minimum actions) + (Estimated minimum transport actions * WU_needed)
+        return total_wu_needed * 2 + total_wu_needed * min_total_path_cost

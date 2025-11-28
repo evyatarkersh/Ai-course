@@ -351,7 +351,7 @@ class WateringProblem(search.Problem):
         needed_plants = [coord for (coord, wu) in plants_tuple if wu > 0]
 
         # Edge cases check
-        if (real_water_debt > 0 and not available_taps) or (total_wu_carried_by_robots > 0 and not needed_plants):
+        if (real_water_debt > 0 and not available_taps):
             return utils.infinity
 
         for _, r, c, load, capacity in robots_tuple:

@@ -3,9 +3,10 @@ import search
 import utils
 from collections import deque
 
-id = "No numbers - I'm special!"
+id = ["207456286"]
 
 
+# MOST UPDATED!!!! BFS ONLY FOR PLANTS AND TAPS!!!!!
 class WateringProblem(search.Problem):
     """This class implements a pressure plate problem"""
 
@@ -15,10 +16,22 @@ class WateringProblem(search.Problem):
         self.rows, self.cols = self.grid_size
         self.walls = frozenset(initial["Walls"])
 
+        # NEW CODE!!!!!!!!!!!!!!!!
+        # המרת הברזים והצמחים לקואורדינטות
+        taps_coords = [t[0] for t in initial["Taps"].items()]
+        plants_coords = [p[0] for p in initial["Plants"].items()]
+        # זהו! רק הם מעניינים
+        interesting_points = set(taps_coords + plants_coords)
+        # חישוב מרחקים אופטימלי - רק מהיעדים הסטטיים
+        self.dists = self._compute_distances_from_sources(interesting_points)
+        # END NEW CODE!!!!!!!!!!!!!!!!
+
         # 2. Pre-calculate Real Distances (BFS)
         # This runs ONCE. We calculate distance from every valid cell to every other valid cell.
         # Structure: self.dists[(r1,c1)][(r2,c2)] = distance_int
-        self.dists = self._compute_all_distances()
+        # NEW: PUT LINE 32 IN COMMENT!!!!!!!!!!!!!
+        # self.dists = self._compute_all_distances()
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         # 3. Optimize Initial State Structure
         # We use sorted tuples instead of frozensets for faster hashing and iteration.
@@ -58,6 +71,37 @@ class WateringProblem(search.Problem):
 
         search.Problem.__init__(self, hashable_initial_state)
 
+    def _compute_distances_from_sources(self, sources):
+        """
+        Runs BFS only from specific 'source' points (Plants, Taps).
+        Returns: distances[source_coord][any_grid_cell] = distance
+        """
+        distances = {}
+        moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+
+        for start in sources:
+            if start not in distances:
+                distances[start] = {}
+
+            # BFS רגיל
+            queue = deque([(start, 0)])
+            visited = {start}
+            distances[start][start] = 0
+
+            while queue:
+                (curr_r, curr_c), dist = queue.popleft()
+
+                for dr, dc in moves:
+                    nr, nc = curr_r + dr, curr_c + dc
+                    neighbor = (nr, nc)
+
+                    if 0 <= nr < self.rows and 0 <= nc < self.cols:
+                        if neighbor not in self.walls and neighbor not in visited:
+                            visited.add(neighbor)
+                            distances[start][neighbor] = dist + 1
+                            queue.append((neighbor, dist + 1))
+        return distances
+
     def _compute_all_distances(self):
         """
         Runs BFS from every valid cell to map true distances on the grid.
@@ -96,9 +140,18 @@ class WateringProblem(search.Problem):
         return distances
 
     def get_distance(self, p1, p2):
-        """Helper to get pre-calculated distance. Returns infinity if unreachable."""
+        """
+        Helper to get pre-calculated distance.
+        Checks both directions because 'dists' keys are only Taps/Plants.
+        """
+        # בדיקה רגילה (אם p1 הוא צמח/ברז)
         if p1 in self.dists and p2 in self.dists[p1]:
             return self.dists[p1][p2]
+
+        # בדיקה הפוכה (אם p2 הוא צמח/ברז - וזה המקרה הנפוץ ב-GBFS)
+        if p2 in self.dists and p1 in self.dists[p2]:
+            return self.dists[p2][p1]
+
         return utils.infinity
 
     def successor(self, state):
@@ -290,25 +343,25 @@ class WateringProblem(search.Problem):
             robot_loc = (r_r, r_c)
 
             # בדיקת בטיחות: אם הרובוט על קיר (לא אמור לקרות), מדלגים
-            if robot_loc not in dists_map: continue
+            # if robot_loc not in dists_map: continue
 
             # שליפת מילון המרחקים של הרובוט הספציפי הזה ב-O(1)
-            r_dists = dists_map[robot_loc]
+            # r_dists = dists_map[robot_loc]
 
             # Option A: Go Pour (הולך לשפוך)
             if load > 0:
                 for p_coord in needed_plants_coords:
                     # גישה ישירה למילון במקום פונקציה get_distance
-                    if p_coord in r_dists:
-                        d = r_dists[p_coord]
+                    if p_coord in dists_map and robot_loc in dists_map[p_coord]:
+                        d = dists_map[p_coord][robot_loc]
                         if d < min_start_dist: min_start_dist = d
 
             # Option B: Go Load (הולך לטעון)
             # תיקון קריטי: מחקנו את התנאי wu_net_needed > 0 כדי לשמור על אדמיסביליות
             if available_taps and load < capacity:
                 for t in available_taps:
-                    if t in r_dists:
-                        d = r_dists[t]
+                    if t in dists_map and robot_loc in dists_map[t]:
+                        d = dists_map[t][robot_loc]
                         if d < min_start_dist: min_start_dist = d
 
         if min_start_dist == utils.infinity: min_start_dist = 0

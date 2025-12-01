@@ -436,6 +436,8 @@ class WateringProblem(search.Problem):
 
 def create_watering_problem(game):
     print("<<create_watering_problem")
+    """ Create a pressure plate problem, based on the description.
+        game - tuple of tuples as described in pdf file"""
     return WateringProblem(game)
 
 

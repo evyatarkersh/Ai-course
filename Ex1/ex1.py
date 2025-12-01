@@ -102,43 +102,6 @@ class WateringProblem(search.Problem):
                             queue.append((neighbor, dist + 1))
         return distances
 
-    def _compute_all_distances(self):
-        """
-        Runs BFS from every valid cell to map true distances on the grid.
-        Returns a nested dictionary: d[start_cell][end_cell] = distance
-        """
-        distances = {}
-        valid_cells = [(r, c) for r in range(self.rows) for c in range(self.cols)
-                       if (r, c) not in self.walls]
-
-        # Optimization: To avoid N^2 full BFS runs if the grid is huge,
-        # usually assignments are small enough (e.g. 10x10 or 20x20).
-        # We run a BFS starting from 'start' to fill the map.
-
-        moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-
-        for start in valid_cells:
-            distances[start] = {}
-            # Standard BFS
-            queue = deque([(start, 0)])
-            visited = {start}
-            distances[start][start] = 0
-
-            while queue:
-                (curr_r, curr_c), dist = queue.popleft()
-
-                for dr, dc in moves:
-                    nr, nc = curr_r + dr, curr_c + dc
-                    neighbor = (nr, nc)
-
-                    if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                        if neighbor not in self.walls and neighbor not in visited:
-                            visited.add(neighbor)
-                            distances[start][neighbor] = dist + 1
-                            queue.append((neighbor, dist + 1))
-
-        return distances
-
     def get_distance(self, p1, p2):
         """
         Helper to get pre-calculated distance.
